@@ -1,5 +1,5 @@
 def buildAndPushImage(String FRONTEND_IMAGE, String DH_CREDENTIALS, String Buildcontext){
-    def frontend= docker.build("${env.FRONTEND_IMAGE}:${GIT_COMMIT}","${Buildcontext}")
+    def frontend= docker.build("${FRONTEND_IMAGE}:${GIT_COMMIT}","${Buildcontext}")
 
     docker.withRegistry("${env.REGISTRY_URL}","${DH_CREDENTIALS}"){
         frontend.push()
@@ -20,8 +20,8 @@ def promoteImage(String sourceImage, String targetImage, String source_DH_Creden
 
 def deployToEks(String cluster_credentials, String namespace, String environment){
     withKubeConfig(credentialsId: "${cluster_credentials}", namespace: "${namespace}"){
-        sh 'echo deploying to employee-${namespace} namespace...'
-        sh "sed -i -e 's/{{ENV}}/${params.environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
+        sh "echo deploying to ${namespace} namespace..."
+        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
         sh 'kubectl apply -f kube/frontend-deployment.yml'
         sh 'kubectl apply -f kube/frontend-service.yml'
         sh 'kubectl apply -f kube/ingress.yml'
