@@ -1,32 +1,3 @@
-def buildAndPushImage(String FRONTEND_IMAGE, String DH_CREDENTIALS, String Buildcontext){
-    def frontend= docker.build("${FRONTEND_IMAGE}:${GIT_COMMIT}","${Buildcontext}")
-
-    docker.withRegistry("${env.REGISTRY_URL}","${DH_CREDENTIALS}"){
-        frontend.push()
-    }
-}
-
-def promoteImage(String sourceImage, String targetImage, String source_DH_Credentials, String target_DH_Credentials){
-    docker.withRegistry("${env.REGISTRY_URL}","${source_DH_Credentials}"){
-        docker.image("${sourceImage}:${GIT_COMMIT}").pull()
-    }
-
-    sh "docker tag ${sourceImage}:${GIT_COMMIT} ${targetImage}:${GIT_COMMIT}"
-
-    docker.withRegistry("${env.REGISTRY_URL}","${target_DH_Credentials}"){
-        docker.image("${targetImage}:${GIT_COMMIT}").push()
-    }
-}
-
-def deployToEks(String cluster_credentials, String namespace, String environment){
-    withKubeConfig(credentialsId: "${cluster_credentials}", namespace: "${namespace}"){
-        sh "echo deploying to ${namespace} namespace..."
-        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
-        sh 'kubectl apply -f kube/frontend-deployment.yml'
-        sh 'kubectl apply -f kube/frontend-service.yml'
-        sh 'kubectl apply -f kube/ingress.yml'
-    }
-}
 
 pipeline{
     agent any
@@ -73,23 +44,19 @@ pipeline{
             }
             steps{
                 script{
-
-                    // def frontend= docker.build("${env.FRONTEND_IMAGE_DEV}:${GIT_COMMIT}","./frontend")
-
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.DEV_DH_CREDENTIALS}"){
-                    //     frontend.push()
-                    // }
-
                     buildAndPushImage("${env.FRONTEND_IMAGE_DEV}","${env.DEV_DH_CREDENTIALS}", "${env.BUILD_CONTEXT}")
+                }
+            }
+        }
 
-                    // withKubeConfig(credentialsId: 'eks-kubeconfig', namespace: 'employee-dev'){
-                    //     sh 'echo deploying to employee-dev namespace...'
-                    //     sh "sed -i -e 's/{{ENV}}/${params.Environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
-                    //     sh 'kubectl apply -f kube/frontend-deployment.yml'
-                    //     sh 'kubectl apply -f kube/frontend-service.yml'
-                    //     sh 'kubectl apply -f kube/ingress.yml'
-                    // }
-
+        stage("Dev - Deploy to eks"){
+            when {
+                expression{
+                    params.Environment == "dev"
+                }
+            }
+            steps{
+                script{
                     deployToEks("${env.CLUSTER_CREDENTIALS}","${env.DEV_NS}","${params.Environment}")
                 }
             }
@@ -103,26 +70,19 @@ pipeline{
             }
             steps{
                 script{
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.DEV_DH_CREDENTIALS}"){
-                    //     docker.image("${env.FRONTEND_IMAGE_DEV}:${GIT_COMMIT}").pull()
-                    // }
-
-                    // sh "docker tag ${env.FRONTEND_IMAGE_DEV}:${GIT_COMMIT} ${env.FRONTEND_IMAGE_QA}:${GIT_COMMIT}"
-
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.QA_DH_CREDENTIALS}"){
-                    //     docker.image("${env.FRONTEND_IMAGE_QA}:${GIT_COMMIT}").push()
-                    // }
-
                     promoteImage("${env.FRONTEND_IMAGE_DEV}","${env.FRONTEND_IMAGE_QA}","${env.DEV_DH_CREDENTIALS}","${env.QA_DH_CREDENTIALS}")
+                }
+            }
+        }
 
-                    // withKubeConfig(credentialsId: 'eks-kubeconfig', namespace: 'employee-qa'){
-                    //     sh 'echo deploying to employee-qa namespace...'
-                    //     sh "sed -i -e 's/{{ENV}}/${params.Environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
-                    //     sh 'kubectl apply -f kube/frontend-deployment.yml'
-                    //     sh 'kubectl apply -f kube/frontend-service.yml'
-                    //     sh 'kubectl apply -f kube/ingress.yml'
-                    // }
-
+        stage("QA - Deploy to eks"){
+            when{
+                expression{
+                    params.Environment == "qa"
+                }
+            }
+            steps{
+                script{
                     deployToEks("${env.CLUSTER_CREDENTIALS}","${env.QA_NS}","${params.Environment}")
                 }
             }
@@ -136,26 +96,19 @@ pipeline{
             }
             steps{
                 script{
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.QA_DH_CREDENTIALS}"){
-                    //     docker.image("${env.FRONTEND_IMAGE_QA}:${GIT_COMMIT}").pull()
-                    // }
-
-                    // sh "docker tag ${env.FRONTEND_IMAGE_QA}:${GIT_COMMIT} ${env.FRONTEND_IMAGE_UAT}:${GIT_COMMIT}"
-
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.UAT_DH_CREDENTIALS}"){
-                    //     docker.image("${env.FRONTEND_IMAGE_UAT}:${GIT_COMMIT}").push()
-                    // }
-
                     promoteImage("${env.FRONTEND_IMAGE_QA}","${env.FRONTEND_IMAGE_UAT}","${env.QA_DH_CREDENTIALS}","${env.UAT_DH_CREDENTIALS}")
+                }
+            }
+        }
 
-                    // withKubeConfig(credentialsId: 'eks-kubeconfig', namespace: 'employee-uat'){
-                    //     sh 'echo deploying to employee-uat namespace...'
-                    //     sh "sed -i -e 's/{{ENV}}/${params.Environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
-                    //     sh 'kubectl apply -f kube/frontend-deployment.yml'
-                    //     sh 'kubectl apply -f kube/frontend-service.yml'
-                    //     sh 'kubectl apply -f kube/ingress.yml'
-                    // }
-
+        stage("UAT - Deploy to eks"){
+            when {
+                expression{
+                    params.Environment == "uat"
+                }
+            }
+            steps{
+                script{
                     deployToEks("${env.CLUSTER_CREDENTIALS}","${env.UAT_NS}","${params.Environment}")
                 }
             }
@@ -173,7 +126,6 @@ pipeline{
             }
         }
         
-
         stage("Promote image from UAT to PROD"){
             when{
                 expression{
@@ -182,27 +134,19 @@ pipeline{
             }
             steps{
                 script{
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.UAT_DH_CREDENTIALS}"){
-                    //     docker.image("${env.FRONTEND_IMAGE_UAT}:${GIT_COMMIT}").pull()
-                    // }
-
-                    // sh "docker tag ${env.FRONTEND_IMAGE_UAT}:${GIT_COMMIT} ${env.FRONTEND_IMAGE_PROD}:${GIT_COMMIT}"
-
-                    // docker.withRegistry("${env.REGISTRY_URL}","${env.PROD_DH_CREDENTIALS}"){
-                    //     docker.image("${env.FRONTEND_IMAGE_PROD}:${GIT_COMMIT}").push()
-                    // }
-
                     promoteImage("${env.FRONTEND_IMAGE_UAT}","${env.FRONTEND_IMAGE_PROD}","${env.UAT_DH_CREDENTIALS}","${env.PROD_DH_CREDENTIALS}")
+                }
+            }
+        }
 
-
-                    // withKubeConfig(credentialsId: 'eks-kubeconfig', namespace: 'employee-prod'){
-                    //     sh 'echo deploying to employee-prod namespace...'
-                    //     sh "sed -i -e 's/{{ENV}}/${params.Environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
-                    //     sh 'kubectl apply -f kube/frontend-deployment.yml'
-                    //     sh 'kubectl apply -f kube/frontend-service.yml'
-                    //     sh 'kubectl apply -f kube/ingress.yml'
-                    // }
-
+        stage("PROD - Deploy to eks"){
+            when{
+                expression{
+                    params.Environment == "prod"
+                }
+            }
+            steps{
+                script{
                     deployToEks("${env.CLUSTER_CREDENTIALS}","${env.PROD_NS}","${params.Environment}")
                 }
             }
@@ -212,5 +156,35 @@ pipeline{
         always{
             deleteDir()
         }
+    }
+}
+
+def buildAndPushImage(String FRONTEND_IMAGE, String DH_CREDENTIALS, String Buildcontext){
+    def frontend= docker.build("${FRONTEND_IMAGE}:${GIT_COMMIT}","${Buildcontext}")
+
+    docker.withRegistry("${env.REGISTRY_URL}","${DH_CREDENTIALS}"){
+        frontend.push()
+    }
+}
+
+def promoteImage(String sourceImage, String targetImage, String source_DH_Credentials, String target_DH_Credentials){
+    docker.withRegistry("${env.REGISTRY_URL}","${source_DH_Credentials}"){
+        docker.image("${sourceImage}:${GIT_COMMIT}").pull()
+    }
+
+    sh "docker tag ${sourceImage}:${GIT_COMMIT} ${targetImage}:${GIT_COMMIT}"
+
+    docker.withRegistry("${env.REGISTRY_URL}","${target_DH_Credentials}"){
+        docker.image("${targetImage}:${GIT_COMMIT}").push()
+    }
+}
+
+def deployToEks(String cluster_credentials, String namespace, String environment){
+    withKubeConfig(credentialsId: "${cluster_credentials}", namespace: "${namespace}"){
+        sh "echo deploying to ${namespace} namespace..."
+        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
+        sh 'kubectl apply -f kube/frontend-deployment.yml'
+        sh 'kubectl apply -f kube/frontend-service.yml'
+        sh 'kubectl apply -f kube/ingress.yml'
     }
 }
