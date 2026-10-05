@@ -32,6 +32,12 @@ pipeline{
             choices: ["dev","qa","uat","prod"],
             description: "Select deployment environment"
         )
+
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'provide commit id'
+        )
     }
 
     stages{
@@ -169,20 +175,25 @@ def buildAndPushImage(String FRONTEND_IMAGE, String DH_CREDENTIALS, String Build
 
 def promoteImage(String sourceImage, String targetImage, String source_DH_Credentials, String target_DH_Credentials){
     docker.withRegistry("${env.REGISTRY_URL}","${source_DH_Credentials}"){
-        docker.image("${sourceImage}:${GIT_COMMIT}").pull()
+        docker.image("${sourceImage}:${params.IMAGE_TAG}").pull()
     }
 
-    sh "docker tag ${sourceImage}:${GIT_COMMIT} ${targetImage}:${GIT_COMMIT}"
+    sh "docker tag ${sourceImage}:${params.IMAGE_TAG} ${targetImage}:${params.IMAGE_TAG}"
 
     docker.withRegistry("${env.REGISTRY_URL}","${target_DH_Credentials}"){
-        docker.image("${targetImage}:${GIT_COMMIT}").push()
+        docker.image("${targetImage}:${params.IMAGE_TAG}").push()
     }
 }
 
 def deployToEks(String cluster_credentials, String namespace, String environment){
     withKubeConfig(credentialsId: "${cluster_credentials}", namespace: "${namespace}"){
-        sh "echo deploying to ${namespace} namespace..."
-        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
+        if(params.Environment == "dev"){
+            sh 'echo deploying to ${namespace} namespace...'
+            sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/backend-deployment.yml "
+        }else{
+            sh 'echo deploying to ${namespace} namespace...'
+            sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/backend-deployment.yml "
+        }        
         sh 'kubectl apply -f kube/frontend-deployment.yml'
         sh 'kubectl apply -f kube/frontend-service.yml'
         sh 'kubectl apply -f kube/ingress.yml'

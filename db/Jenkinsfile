@@ -4,12 +4,12 @@ pipeline{
 
     environment{
 
-        BUILD_CONTEXT='./backend'
+        BUILD_CONTEXT='./db'
 
-        BACKEND_IMAGE_DEV= 'avejlanjekar45/employee-management-backend-dev'
-        BACKEND_IMAGE_QA= 'avejlanjekar45/employee-management-backend-qa'
-        BACKEND_IMAGE_UAT='avejlanjekar45/employee-management-backend-uat'
-        BACKEND_IMAGE_PROD='avejlanjekar45/employee-management-backend-prod'
+        BACKEND_IMAGE_DEV= 'avejlanjekar45/employee-management-database-dev'
+        BACKEND_IMAGE_QA= 'avejlanjekar45/employee-management-database-qa'
+        BACKEND_IMAGE_UAT='avejlanjekar45/employee-management-database-uat'
+        BACKEND_IMAGE_PROD='avejlanjekar45/employee-management-database-prod'
 
         REGISTRY_URL= 'https://registry.hub.docker.com'
 
@@ -154,7 +154,7 @@ pipeline{
             }
         }
 
-        stage("UAT- Deploy to eks"){
+        stage("PROD- Deploy to eks"){
             when{
                 expression{
                     params.Environment == "prod"
@@ -203,8 +203,10 @@ def deployToEks(String cluster_credentials, String namespace, String environment
         }else{
             sh 'echo deploying to ${namespace} namespace...'
             sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/backend-deployment.yml "
-        }
-        sh 'kubectl apply -f kube/backend-deployment.yml'
-        sh 'kubectl apply -f kube/backend-service.yml'
+        }    
+        sh 'kubectl apply -f kube/configmap.yml'
+        sh 'kubectl apply -f kube/db-secret.yml'
+        sh 'kubectl apply -f kube/mysql-deployment.yml'
+        sh 'kubectl apply -f kube/mysql-service.yml'
     }
 }
