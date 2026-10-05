@@ -4,6 +4,8 @@ pipeline{
 
     environment{
 
+        AWS_CREDENTIALS= 'aws-ecr-credentials'
+
         BUILD_CONTEXT='./backend'
 
         BACKEND_IMAGE_DEV= 'avejlanjekar45/employee-management-backend-dev'
