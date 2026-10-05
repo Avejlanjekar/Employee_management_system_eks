@@ -4,6 +4,8 @@ pipeline{
 
     environment{
 
+        AWS_CREDENTIALS= 'aws-ecr-credentials
+
         BUILD_CONTEXT='./db'
 
         DATABASE_IMAGE_DEV= 'avejlanjekar45/employee-management-database-dev'
