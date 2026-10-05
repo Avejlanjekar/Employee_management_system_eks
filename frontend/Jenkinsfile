@@ -208,7 +208,7 @@ def deployToEks(String namespace, String environment){
         sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/frontend-deployment.yml "
     }        
     sh "kubectl apply -f kube/frontend-deployment.yml -n ${namespace}"
-    sh "ubectl apply -f kube/frontend-service.yml -n ${namespace}"
+    sh "kubectl apply -f kube/frontend-service.yml -n ${namespace}"
     sh "kubectl apply -f kube/ingress.yml -n ${namespace}"
     
 }
