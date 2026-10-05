@@ -4,7 +4,7 @@ pipeline{
 
     environment{
 
-        AWS_CREDENTIALS= 'aws-ecr-credentials
+        AWS_CREDENTIALS= 'aws-ecr-credentials'
 
         BUILD_CONTEXT='./db'
 
