@@ -4,6 +4,8 @@ pipeline{
 
     environment{
 
+        AWS_CREDENTIALS= 'aws-ecr-credentials'
+
         BUILD_CONTEXT='./frontend'
 
         FRONTEND_IMAGE_DEV= 'avejlanjekar45/employee-management-frontend-dev'
@@ -66,7 +68,12 @@ pipeline{
             }
             steps{
                 script{
-                    deployToEks("${env.DEV_NS}","${params.Environment}")
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: "${env.AWS_CREDENTIALS}"]
+                    ]) {
+                            deployToEks("${env.DEV_NS}", "${params.Environment}")
+                    }
                 }
             }
         }
@@ -192,7 +199,6 @@ def deployToEks(String namespace, String environment){
 
     sh "aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER}"
     sh 'kubectl get nodes'
-    sh "kubectl create namespace ${namespace}"
 
     if(params.Environment == "dev"){
         sh "echo deploying to ${namespace} namespace..."
