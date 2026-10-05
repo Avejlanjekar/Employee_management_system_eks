@@ -72,10 +72,10 @@ pipeline{
                 script{
                     withCredentials([
                         [$class: 'AmazonWebServicesCredentialsBinding',
-                             credentialsId: "${env.AWS_CREDENTIALS}"]
-                        ]) {
-                                deployToEks("${env.DEV_NS}", "${params.Environment}")
-                        }
+                            credentialsId: "${env.AWS_CREDENTIALS}"]
+                    ]) {
+                            deployToEks("${env.DEV_NS}", "${params.Environment}")
+                    }
                 }
             }
         }
