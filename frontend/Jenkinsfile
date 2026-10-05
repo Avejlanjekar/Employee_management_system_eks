@@ -20,6 +20,9 @@ pipeline{
 
         CLUSTER_CREDENTIALS= 'eks-kubeconfig'
 
+        AWS_REGION = 'ap-south-1'
+        EKS_CLUSTER = 'employee-management-eks'
+
         DEV_NS= 'employee-dev'
         QA_NS= 'employee-qa'
         UAT_NS= 'employee-uat'
@@ -63,7 +66,7 @@ pipeline{
             }
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.DEV_NS}","${params.Environment}")
+                    deployToEks("${env.DEV_NS}","${params.Environment}")
                 }
             }
         }
@@ -89,7 +92,7 @@ pipeline{
             }
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.QA_NS}","${params.Environment}")
+                    deployToEks("${env.QA_NS}","${params.Environment}")
                 }
             }
         }
@@ -115,7 +118,7 @@ pipeline{
             }
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.UAT_NS}","${params.Environment}")
+                    deployToEks("${env.UAT_NS}","${params.Environment}")
                 }
             }
         }
@@ -153,7 +156,7 @@ pipeline{
             }
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.PROD_NS}","${params.Environment}")
+                    deployToEks("${env.PROD_NS}","${params.Environment}")
                 }
             }
         }
@@ -185,17 +188,21 @@ def promoteImage(String sourceImage, String targetImage, String source_DH_Creden
     }
 }
 
-def deployToEks(String cluster_credentials, String namespace, String environment){
-    withKubeConfig(credentialsId: "${cluster_credentials}", namespace: "${namespace}"){
-        if(params.Environment == "dev"){
-            sh 'echo deploying to ${namespace} namespace...'
-            sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/backend-deployment.yml "
-        }else{
-            sh 'echo deploying to ${namespace} namespace...'
-            sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/backend-deployment.yml "
-        }        
-        sh 'kubectl apply -f kube/frontend-deployment.yml'
-        sh 'kubectl apply -f kube/frontend-service.yml'
-        sh 'kubectl apply -f kube/ingress.yml'
-    }
+def deployToEks(String namespace, String environment){
+
+    sh "aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER}"
+    sh 'kubectl get nodes'
+    sh "kubectl create namespace ${namespace}"
+
+    if(params.Environment == "dev"){
+        sh "echo deploying to ${namespace} namespace..."
+        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/frontend-deployment.yml "
+    }else{
+        sh "echo deploying to ${namespace} namespace..."
+        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/frontend-deployment.yml "
+    }        
+    sh "kubectl apply -f kube/frontend-deployment.yml -n ${namespace}"
+    sh "ubectl apply -f kube/frontend-service.yml -n ${namespace}"
+    sh "ubectl apply -f kube/ingress.yml -n ${namespace}"
+    
 }

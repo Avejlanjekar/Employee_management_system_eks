@@ -6,10 +6,10 @@ pipeline{
 
         BUILD_CONTEXT='./db'
 
-        BACKEND_IMAGE_DEV= 'avejlanjekar45/employee-management-database-dev'
-        BACKEND_IMAGE_QA= 'avejlanjekar45/employee-management-database-qa'
-        BACKEND_IMAGE_UAT='avejlanjekar45/employee-management-database-uat'
-        BACKEND_IMAGE_PROD='avejlanjekar45/employee-management-database-prod'
+        DATABASE_IMAGE_DEV= 'avejlanjekar45/employee-management-database-dev'
+        DATABASE_IMAGE_QA= 'avejlanjekar45/employee-management-database-qa'
+        DATABASE_IMAGE_UAT='avejlanjekar45/employee-management-database-uat'
+        DATABASE_IMAGE_PROD='avejlanjekar45/employee-management-database-prod'
 
         REGISTRY_URL= 'https://registry.hub.docker.com'
 
@@ -19,6 +19,9 @@ pipeline{
         PROD_DH_CREDENTIALS= 'dockerhub-credentials'
 
         CLUSTER_CREDENTIALS= 'eks-kubeconfig'
+
+        AWS_REGION = 'ap-south-1'
+        EKS_CLUSTER = 'employee-management-eks'
 
         DEV_NS= 'employee-dev'
         QA_NS= 'employee-qa'
@@ -50,7 +53,7 @@ pipeline{
             }
             steps{
                 script{
-                    buildAndPushImage("${env.BACKEND_IMAGE_DEV}","${env.DEV_DH_CREDENTIALS}","${env.BUILD_CONTEXT}")
+                    buildAndPushImage("${env.DATABASE_IMAGE_DEV}","${env.DEV_DH_CREDENTIALS}","${env.BUILD_CONTEXT}")
                 }
             }
         }
@@ -65,7 +68,7 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.DEV_NS}","${params.Environment}")
+                    deployToEks("${env.DEV_NS}","${params.Environment}")
                 }
             }
         }
@@ -79,7 +82,7 @@ pipeline{
             steps{
                 script{
 
-                    promoteImage("${env.BACKEND_IMAGE_DEV}","${env.BACKEND_IMAGE_QA}","${env.DEV_DH_CREDENTIALS}","${env.QA_DH_CREDENTIALS}")
+                    promoteImage("${env.DATABASE_IMAGE_DEV}","${env.DATABASE_IMAGE_QA}","${env.DEV_DH_CREDENTIALS}","${env.QA_DH_CREDENTIALS}")
                 }
             }
         }
@@ -93,7 +96,7 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.QA_NS}","${params.Environment}")
+                    deployToEks("${env.QA_NS}","${params.Environment}")
                 }
             }
         }
@@ -107,7 +110,7 @@ pipeline{
             steps{
                 script{
 
-                    promoteImage("${env.BACKEND_IMAGE_QA}","${env.BACKEND_IMAGE_UAT}", "${env.QA_DH_CREDENTIALS}","${env.UAT_DH_CREDENTIALS}")
+                    promoteImage("${env.DATABASE_IMAGE_QA}","${env.DATABASE_IMAGE_UAT}", "${env.QA_DH_CREDENTIALS}","${env.UAT_DH_CREDENTIALS}")
 
                 }
             }
@@ -122,7 +125,7 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.UAT_NS}","${params.Environment}")
+                    deployToEks("${env.UAT_NS}","${params.Environment}")
                 }
             }
         }
@@ -149,7 +152,7 @@ pipeline{
             steps{
                 script{
 
-                    promoteImage("${env.BACKEND_IMAGE_UAT}","${env.BACKEND_IMAGE_PROD}","${env.UAT_DH_CREDENTIALS}","${env.PROD_DH_CREDENTIALS}")
+                    promoteImage("${env.DATABASE_IMAGE_UAT}","${env.DATABASE_IMAGE_PROD}","${env.UAT_DH_CREDENTIALS}","${env.PROD_DH_CREDENTIALS}")
                 }
             }
         }
@@ -163,7 +166,7 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.CLUSTER_CREDENTIALS}","${env.PROD_NS}","${params.Environment}")
+                    deployToEks("${env.PROD_NS}","${params.Environment}")
                 }
             }
         }
@@ -175,11 +178,11 @@ pipeline{
     }
 }
 
-def buildAndPushImage(String BACKEND_IMAGE, String DH_CREDENTIALS, String Buildcontext){
-    def backend= docker.build("${BACKEND_IMAGE}:${GIT_COMMIT}","${Buildcontext}")
+def buildAndPushImage(String DATABASE_IMAGE, String DH_CREDENTIALS, String Buildcontext){
+    def database= docker.build("${DATABASE_IMAGE}:${GIT_COMMIT}","${Buildcontext}")
 
     docker.withRegistry("${env.REGISTRY_URL}","${DH_CREDENTIALS}"){
-        backend.push()
+        database.push()
     }
 }
 
@@ -195,18 +198,22 @@ def promoteImage(String sourceImage, String targetImage, String source_DH_Creden
     }
 }
 
-def deployToEks(String cluster_credentials, String namespace, String environment){
-    withKubeConfig(credentialsId: "${cluster_credentials}", namespace: "${namespace}"){
-        if(params.Environment == "dev"){
-            sh 'echo deploying to ${namespace} namespace...'
-            sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/backend-deployment.yml "
-        }else{
-            sh 'echo deploying to ${namespace} namespace...'
-            sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/backend-deployment.yml "
-        }    
-        sh 'kubectl apply -f kube/configmap.yml'
-        sh 'kubectl apply -f kube/db-secret.yml'
-        sh 'kubectl apply -f kube/mysql-deployment.yml'
-        sh 'kubectl apply -f kube/mysql-service.yml'
-    }
+def deployToEks(String namespace, String environment){
+    sh "aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER}"
+    sh "kubectl create namespace ${namespace}"
+    sh 'kubectl get nodes'
+    
+    if(params.Environment == "dev"){
+        sh "echo deploying to ${namespace} namespace..."
+        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${env.GIT_COMMIT}/g' kube/mysql-deployment.yml "
+    }else{
+        sh "echo deploying to ${namespace} namespace..."
+        sh "sed -i -e 's/{{ENV}}/${environment}/g' -e 's/{{COMMITID}}/${params.IMAGE_TAG}/g' kube/mysql-deployment.yml "
+    }  
+
+    sh "kubectl apply -f kube/configmap.yml -n ${namespace}"
+    sh "kubectl apply -f kube/db-secret.yml -n ${namespace}"
+    sh "kubectl apply -f kube/mysql-deployment.yml -n ${namespace}"
+    sh "kubectl apply -f kube/mysql-service.yml -n ${namespace}"
+    
 }

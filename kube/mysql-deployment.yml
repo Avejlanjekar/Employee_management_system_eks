@@ -13,7 +13,7 @@ spec:
         app: mysql
     spec:
       containers:
-        - name: myql
+        - name: mysql
           image: avejlanjekar45/employee-management-databse-{{ENV}}:{{COMMITID}}
           ports:
             - containerPort: 3306
