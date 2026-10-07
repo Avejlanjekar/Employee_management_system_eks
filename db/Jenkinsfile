@@ -103,7 +103,12 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.QA_NS}","${params.Environment}")
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: "${env.AWS_CREDENTIALS}"]
+                    ]) {
+                            deployToEks("${env.QA_NS}", "${params.Environment}")
+                    }
                 }
             }
         }
@@ -132,7 +137,12 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.UAT_NS}","${params.Environment}")
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: "${env.AWS_CREDENTIALS}"]
+                    ]) {
+                            deployToEks("${env.UAT_NS}", "${params.Environment}")
+                    }
                 }
             }
         }
@@ -173,7 +183,12 @@ pipeline{
 
             steps{
                 script{
-                    deployToEks("${env.PROD_NS}","${params.Environment}")
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: "${env.AWS_CREDENTIALS}"]
+                    ]) {
+                            deployToEks("${env.PROD_NS}", "${params.Environment}")
+                    }
                 }
             }
         }
