@@ -206,7 +206,7 @@ def promoteImage(String sourceImage, String targetImage, String source_DH_Creden
 }
 
 def deployToEks(String namespace, String environment){
-    sh "aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER}"
+    sh "aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER}-${environment}"
     sh 'kubectl get nodes'
     
     if(params.Environment == "dev"){
